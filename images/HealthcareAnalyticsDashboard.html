@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Healthcare Analytics Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+            color: #ffffff;
+            overflow-x: auto;
+            min-height: 100vh;
+        }
+
+        .dashboard {
+            width: 20cm;
+            height: 10cm;
+            margin: 20px auto;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 20px;
+            padding: 15px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dashboard::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.6), transparent);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #00d4ff, #0066cc);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .hospital-name {
+            font-size: 16px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00d4ff, #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .time-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00ff88;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr 1fr;
+            gap: 12px;
+            height: calc(100% - 60px);
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.2);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4ff, #0066cc);
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-rows: repeat(4, 1fr);
+            gap: 8px;
+            height: 100%;
+        }
+
+        .kpi-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 8px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 3px solid;
+            transition: all 0.3s ease;
+        }
+
+        .kpi-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateX(3px);
+        }
+
+        .kpi-item.patients { border-left-color: #00ff88; }
+        .kpi-item.occupancy { border-left-color: #ff6b6b; }
+        .kpi-item.staff { border-left-color: #4ecdc4; }
+        .kpi-item.revenue { border-left-color: #ffe66d; }
+
+        .kpi-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 500;
+        }
+
+        .kpi-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 100%;
+        }
+
+        .chart-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .chart-title::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00d4ff;
+        }
+
+        .chart-canvas {
+            height: calc(100% - 25px) !important;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-rows: repeat(3, 1fr);
+            gap: 6px;
+            height: 100%;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .stat-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .stat-label {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .stat-trend {
+            font-size: 8px;
+            margin-top: 2px;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .trend-up { color: #00ff88; }
+        .trend-down { color: #ff6b6b; }
+
+        .loading-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4ff, #0066cc);
+            animation: loading 3s infinite;
+        }
+
+        @keyframes loading {
+            0% { width: 0%; }
+            50% { width: 100%; }
+            100% { width: 0%; }
+        }
+
+        .glow {
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 5px rgba(0, 212, 255, 0.2); }
+            to { box-shadow: 0 0 20px rgba(0, 212, 255, 0.4); }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard glow">
+        <div class="loading-bar"></div>
+        
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">⚕</div>
+                <div class="hospital-name">MedCenter Analytics</div>
+            </div>
+            <div class="time-status">
+                <div class="status-dot"></div>
+                <span>Live • <span id="current-time"></span></span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="card">
+                <div class="kpi-grid">
+                    <div class="kpi-item patients">
+                        <div class="kpi-label">Active Patients</div>
+                        <div class="kpi-value" id="patients-count">247</div>
+                    </div>
+                    <div class="kpi-item occupancy">
+                        <div class="kpi-label">Bed Occupancy</div>
+                        <div class="kpi-value" id="occupancy-rate">82%</div>
+                    </div>
+                    <div class="kpi-item staff">
+                        <div class="kpi-label">Staff On Duty</div>
+                        <div class="kpi-value" id="staff-count">156</div>
+                    </div>
+                    <div class="kpi-item revenue">
+                        <div class="kpi-label">Daily Revenue</div>
+                        <div class="kpi-value" id="revenue">$89K</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="chart-title">Patient Flow (24h)</div>
+                <div class="chart-container">
+                    <canvas id="patientChart" class="chart-canvas"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">Emergency</div>
+                        <div class="stat-value">23</div>
+                        <div class="stat-trend trend-up">↑ 12%</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Surgeries</div>
+                        <div class="stat-value">18</div>
+                        <div class="stat-trend trend-up">↑ 8%</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">ICU</div>
+                        <div class="stat-value">12</div>
+                        <div class="stat-trend trend-down">↓ 4%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Update time
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleTimeString();
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Animate numbers
+        function animateValue(element, start, end, duration) {
+            const range = end - start;
+            const startTime = Date.now();
+            
+            function update() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const value = Math.floor(start + range * progress);
+                element.textContent = value;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+            update();
+        }
+
+        // Real-time data simulation
+        function updateMetrics() {
+            const patients = 240 + Math.floor(Math.random() * 15);
+            const occupancy = 78 + Math.floor(Math.random() * 8);
+            const staff = 150 + Math.floor(Math.random() * 12);
+            const revenue = 85 + Math.floor(Math.random() * 8);
+
+            document.getElementById('patients-count').textContent = patients;
+            document.getElementById('occupancy-rate').textContent = occupancy + '%';
+            document.getElementById('staff-count').textContent = staff;
+            document.getElementById('revenue').textContent = '$' + revenue + 'K';
+        }
+
+        // Chart setup
+        const ctx = document.getElementById('patientChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(0, 212, 255, 0.3)');
+        gradient.addColorStop(1, 'rgba(0, 212, 255, 0.01)');
+
+        const patientChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'],
+                datasets: [{
+                    label: 'Patients',
+                    data: [45, 38, 52, 68, 72, 65, 58],
+                    borderColor: '#00d4ff',
+                    backgroundColor: gradient,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    pointHoverBackgroundColor: '#00d4ff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.5)',
+                            font: { size: 8 }
+                        },
+                        grid: { display: false }
+                    },
+                    y: {
+                        display: false,
+                        grid: { display: false }
+                    }
+                },
+                elements: {
+                    point: { radius: 0 }
+                }
+            }
+        });
+
+        // Animation and updates
+        setInterval(updateMetrics, 5000);
+        
+        // Initial load animation
+        setTimeout(() => {
+            document.querySelector('.dashboard').style.opacity = '1';
+        }, 100);
+    </script>
+</body>
+</html>

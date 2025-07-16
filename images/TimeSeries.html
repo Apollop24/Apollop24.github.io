@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Series Forecasting Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #333;
+            overflow-x: auto;
+        }
+
+        .dashboard {
+            width: 25cm;
+            height: 12cm;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+            padding: 12px;
+            margin: 20px auto;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .dashboard::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c, #4facfe, #00f2fe);
+            animation: shimmer 4s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e3c72;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .model-info {
+            display: flex;
+            gap: 8px;
+            font-size: 9px;
+            color: #2a5298;
+        }
+
+        .model-tag {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 10px;
+            height: calc(100% - 35px);
+        }
+
+        .chart-container {
+            background: linear-gradient(145deg, #ffffff, #f8f9fa);
+            border-radius: 15px;
+            padding: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+        }
+
+        .main-chart {
+            grid-row: span 2;
+        }
+
+        .chart-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #1e3c72;
+            margin-bottom: 6px;
+            text-align: center;
+        }
+
+        .chart-canvas {
+            width: 100% !important;
+            height: calc(100% - 30px) !important;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-rows: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .metric-card {
+            background: linear-gradient(145deg, #ffffff, #f1f3f4);
+            border-radius: 12px;
+            padding: 8px;
+            text-align: center;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent);
+            transition: left 0.6s;
+        }
+
+        .metric-card:hover::before {
+            left: 100%;
+        }
+
+        .metric-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e3c72;
+            margin-bottom: 3px;
+        }
+
+        .metric-label {
+            font-size: 9px;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .confidence-legend {
+            display: flex;
+            justify-content: space-between;
+            font-size: 8px;
+            color: #6c757d;
+            margin-top: 5px;
+            padding: 0 5px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .legend-color {
+            width: 10px;
+            height: 4px;
+            border-radius: 2px;
+        }
+
+        .performance-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 9px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        .technology-stack {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            display: flex;
+            gap: 4px;
+        }
+
+        .tech-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: 600;
+            color: white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+
+        .tech-r { background: linear-gradient(45deg, #276DC3, #165CAA); }
+        .tech-py { background: linear-gradient(45deg, #3776ab, #ffd43b); }
+        .tech-stats { background: linear-gradient(45deg, #FF6B6B, #4ECDC4); }
+
+        .decomposition-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .decomposition-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .seasonal-indicator {
+            background: linear-gradient(45deg, #f093fb, #f5576c);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 8px;
+            font-weight: 600;
+        }
+
+        .outcome-summary {
+            background: linear-gradient(145deg, #e8f5e8, #f0f8f0);
+            border-left: 4px solid #28a745;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 9px;
+            color: #155724;
+            margin-top: 4px;
+        }
+
+        .outcome-title {
+            font-weight: 600;
+            margin-bottom: 3px;
+            color: #0d4e20;
+        }
+
+        .status-indicators {
+            display: flex;
+            gap: 6px;
+            position: absolute;
+            bottom: 8px;
+            left: 12px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        .status-forecast { background: #667eea; }
+        .status-validation { background: #28a745; }
+        .status-optimization { background: #ffc107; }
+
+        @keyframes pulse-glow {
+            0%, 100% { 
+                transform: scale(1); 
+                box-shadow: 0 0 5px currentColor; 
+            }
+            50% { 
+                transform: scale(1.1); 
+                box-shadow: 0 0 15px currentColor; 
+            }
+        }
+
+        .arima-info {
+            position: absolute;
+            top: 25px;
+            right: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 4px 8px;
+            border-radius: 10px;
+            font-size: 8px;
+            color: #1e3c72;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1 class="title">📈 Time Series Forecasting Analytics</h1>
+            <div class="model-info">
+                <div class="model-tag">ARIMA</div>
+                <div class="model-tag">Exp. Smoothing</div>
+                <div class="model-tag">90% Accuracy</div>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Main Forecast Chart with Multiple CIs -->
+            <div class="chart-container main-chart">
+                <div class="chart-title">KPI Forecast with Multiple Confidence Intervals</div>
+                <canvas id="forecastChart" class="chart-canvas"></canvas>
+                <div class="confidence-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #2E86AB;"></div>
+                        <span>Historical Data</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #A23B72;"></div>
+                        <span>Forecast</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(162, 59, 114, 0.2);"></div>
+                        <span>95% CI</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(162, 59, 114, 0.35);"></div>
+                        <span>90% CI</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(162, 59, 114, 0.5);"></div>
+                        <span>80% CI</span>
+                    </div>
+                </div>
+                <div class="arima-info">
+                    ARIMA(2,1,2) | AIC: 1247.3
+                </div>
+            </div>
+
+            <!-- Performance Metrics -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value">89.7%</div>
+                    <div class="metric-label">Forecast Accuracy</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">34%</div>
+                    <div class="metric-label">Stockout Reduction</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">2.3%</div>
+                    <div class="metric-label">MAPE Error</div>
+                </div>
+            </div>
+
+            <!-- Seasonal Decomposition -->
+            <div class="chart-container decomposition-container">
+                <div class="decomposition-header">
+                    <div class="chart-title">Seasonal Decomposition</div>
+                    <div class="seasonal-indicator">Detected</div>
+                </div>
+                <canvas id="decompositionChart" class="chart-canvas"></canvas>
+                <div class="outcome-summary">
+                    <div class="outcome-title">Key Insights:</div>
+                    <div>• Weekly seasonality identified</div>
+                    <div>• 12% inventory optimization</div>
+                    <div>• Hidden behavioral patterns revealed</div>
+                </div>
+            </div>
+
+            <!-- Residuals Analysis -->
+            <div class="chart-container">
+                <div class="chart-title">Model Residuals Analysis</div>
+                <canvas id="residualsChart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+
+        <div class="performance-badge">
+            ✓ Out-of-Sample Validated
+        </div>
+
+        <div class="technology-stack">
+            <div class="tech-icon tech-r">R</div>
+            <div class="tech-icon tech-py">Py</div>
+            <div class="tech-icon tech-stats">SM</div>
+        </div>
+
+        <div class="status-indicators">
+            <div class="status-dot status-forecast" title="Forecasting Active"></div>
+            <div class="status-dot status-validation" title="Model Validated"></div>
+            <div class="status-dot status-optimization" title="Optimization Running"></div>
+        </div>
+    </div>
+
+    <script>
+        // Generate sophisticated time series data
+        function generateTimeSeriesData() {
+            const periods = 60;
+            const forecastPeriods = 20;
+            const labels = [];
+            const historical = [];
+            const forecast = [];
+            const ci95Upper = [];
+            const ci95Lower = [];
+            const ci90Upper = [];
+            const ci90Lower = [];
+            const ci80Upper = [];
+            const ci80Lower = [];
+            
+            // Generate historical data with trend and seasonality
+            for (let i = 0; i < periods; i++) {
+                const date = new Date(2023, 0, 1 + i * 7);
+                labels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+                
+                const trend = 100 + i * 2;
+                const seasonal = 20 * Math.sin(i * 0.3) + 15 * Math.sin(i * 0.1);
+                const noise = (Math.random() - 0.5) * 10;
+                
+                historical.push(trend + seasonal + noise);
+            }
+            
+            // Generate forecast with confidence intervals
+            for (let i = 0; i < forecastPeriods; i++) {
+                const date = new Date(2023, 0, 1 + (periods + i) * 7);
+                labels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+                
+                const trend = 100 + (periods + i) * 2;
+                const seasonal = 20 * Math.sin((periods + i) * 0.3) + 15 * Math.sin((periods + i) * 0.1);
+                const forecastValue = trend + seasonal + (Math.random() - 0.5) * 5;
+                
+                forecast.push(forecastValue);
+                
+                // Different confidence intervals
+                const uncertainty = 5 + i * 0.8; // Increasing uncertainty
+                ci95Upper.push(forecastValue + uncertainty * 1.96);
+                ci95Lower.push(forecastValue - uncertainty * 1.96);
+                ci90Upper.push(forecastValue + uncertainty * 1.65);
+                ci90Lower.push(forecastValue - uncertainty * 1.65);
+                ci80Upper.push(forecastValue + uncertainty * 1.28);
+                ci80Lower.push(forecastValue - uncertainty * 1.28);
+            }
+            
+            // Fill historical forecast arrays
+            for (let i = 0; i < periods; i++) {
+                forecast.unshift(null);
+                ci95Upper.unshift(null);
+                ci95Lower.unshift(null);
+                ci90Upper.unshift(null);
+                ci90Lower.unshift(null);
+                ci80Upper.unshift(null);
+                ci80Lower.unshift(null);
+            }
+            
+            // Fill forecast historical array
+            for (let i = 0; i < forecastPeriods; i++) {
+                historical.push(null);
+            }
+            
+            return {
+                labels, historical, forecast,
+                ci95Upper, ci95Lower, ci90Upper, ci90Lower, ci80Upper, ci80Lower
+            };
+        }
+
+        // Initialize main forecast chart
+        const timeSeriesData = generateTimeSeriesData();
+        
+        const forecastCtx = document.getElementById('forecastChart').getContext('2d');
+        new Chart(forecastCtx, {
+            type: 'line',
+            data: {
+                labels: timeSeriesData.labels,
+                datasets: [{
+                    label: '95% CI Upper',
+                    data: timeSeriesData.ci95Upper,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(162, 59, 114, 0.15)',
+                    fill: '+1',
+                    pointRadius: 0,
+                    tension: 0.4
+                }, {
+                    label: '95% CI Lower',
+                    data: timeSeriesData.ci95Lower,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(162, 59, 114, 0.15)',
+                    fill: false,
+                    pointRadius: 0,
+                    tension: 0.4
+                }, {
+                    label: '90% CI Upper',
+                    data: timeSeriesData.ci90Upper,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(162, 59, 114, 0.25)',
+                    fill: '+1',
+                    pointRadius: 0,
+                    tension: 0.4
+                }, {
+                    label: '90% CI Lower',
+                    data: timeSeriesData.ci90Lower,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(162, 59, 114, 0.25)',
+                    fill: false,
+                    pointRadius: 0,
+                    tension: 0.4
+                }, {
+                    label: '80% CI Upper',
+                    data: timeSeriesData.ci80Upper,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(162, 59, 114, 0.35)',
+                    fill: '+1',
+                    pointRadius: 0,
+                    tension: 0.4
+                }, {
+                    label: '80% CI Lower',
+                    data: timeSeriesData.ci80Lower,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(162, 59, 114, 0.35)',
+                    fill: false,
+                    pointRadius: 0,
+                    tension: 0.4
+                }, {
+                    label: 'Historical Data',
+                    data: timeSeriesData.historical,
+                    borderColor: '#2E86AB',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 1,
+                    pointBackgroundColor: '#2E86AB',
+                    tension: 0.4
+                }, {
+                    label: 'Forecast',
+                    data: timeSeriesData.forecast,
+                    borderColor: '#A23B72',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    pointRadius: 1,
+                    pointBackgroundColor: '#A23B72',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { display: false },
+                        ticks: { 
+                            maxTicksLimit: 8,
+                            font: { size: 8 }
+                        }
+                    },
+                    y: {
+                        display: true,
+                        grid: { color: 'rgba(0,0,0,0.1)' },
+                        ticks: { 
+                            font: { size: 8 },
+                            callback: function(value) {
+                                return Math.round(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Seasonal Decomposition Chart
+        const decompositionCtx = document.getElementById('decompositionChart').getContext('2d');
+        const seasonalData = [];
+        for (let i = 0; i < 30; i++) {
+            seasonalData.push(20 * Math.sin(i * 0.3) + 15 * Math.sin(i * 0.1));
+        }
+        
+        new Chart(decompositionCtx, {
+            type: 'line',
+            data: {
+                labels: Array.from({length: 30}, (_, i) => `W${i+1}`),
+                datasets: [{
+                    label: 'Seasonal Component',
+                    data: seasonalData,
+                    borderColor: '#F093FB',
+                    backgroundColor: 'rgba(240, 147, 251, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    pointRadius: 0,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { display: false },
+                        ticks: { 
+                            maxTicksLimit: 6,
+                            font: { size: 8 }
+                        }
+                    },
+                    y: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        // Residuals Analysis Chart
+        const residualsCtx = document.getElementById('residualsChart').getContext('2d');
+        const residuals = Array.from({length: 50}, () => (Math.random() - 0.5) * 10);
+        
+        new Chart(residualsCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Residuals',
+                    data: residuals.map((val, i) => ({ x: i, y: val })),
+                    backgroundColor: 'rgba(78, 205, 196, 0.6)',
+                    borderColor: '#4ECDC4',
+                    pointRadius: 3,
+                    pointHoverRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { display: false },
+                        ticks: { 
+                            maxTicksLimit: 6,
+                            font: { size: 8 }
+                        }
+                    },
+                    y: {
+                        display: true,
+                        grid: { color: 'rgba(0,0,0,0.1)' },
+                        ticks: { 
+                            font: { size: 8 }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Real-time metric updates
+        function updateMetrics() {
+            const accuracy = (89.7 + (Math.random() - 0.5) * 2).toFixed(1);
+            const reduction = (34 + (Math.random() - 0.5) * 4).toFixed(0);
+            const mape = (2.3 + (Math.random() - 0.5) * 0.4).toFixed(1);
+            
+            document.querySelectorAll('.metric-value')[0].textContent = accuracy + '%';
+            document.querySelectorAll('.metric-value')[1].textContent = reduction + '%';
+            document.querySelectorAll('.metric-value')[2].textContent = mape + '%';
+        }
+
+        // Update every 5 seconds
+        setInterval(updateMetrics, 5000);
+
+        // Add hover effects
+        document.querySelectorAll('.chart-container').forEach(container => {
+            container.addEventListener('mouseenter', () => {
+                container.style.transform = 'translateY(-3px)';
+                container.style.boxShadow = '0 15px 40px rgba(0,0,0,0.18)';
+            });
+            
+            container.addEventListener('mouseleave', () => {
+                container.style.transform = 'translateY(0)';
+                container.style.boxShadow = '0 10px 30px rgba(0,0,0,0.12)';
+            });
+        });
+    </script>
+</body>
+</html>

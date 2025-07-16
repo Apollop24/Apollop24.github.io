@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bike Rental Demand Forecasting Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            overflow-x: auto;
+        }
+
+        .dashboard {
+            width: 25cm;
+            height: 12cm;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            margin: 20px auto;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dashboard::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #ffeaa7);
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #2c3e50;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
+            color: #27ae60;
+            font-weight: 600;
+        }
+
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: #27ae60;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+            gap: 8px;
+            height: calc(100% - 35px);
+        }
+
+        .chart-container {
+            background: linear-gradient(145deg, #ffffff, #f8f9fa);
+            border-radius: 12px;
+            padding: 8px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1);
+        }
+
+        .chart-title {
+            font-size: 10px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 6px;
+            text-align: center;
+        }
+
+        .chart-canvas {
+            width: 100% !important;
+            height: calc(100% - 25px) !important;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-rows: repeat(5, 1fr);
+            gap: 5px;
+        }
+
+        .metric-card {
+            background: linear-gradient(145deg, #ffffff, #f1f3f4);
+            border-radius: 10px;
+            padding: 6px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+            transition: left 0.5s;
+        }
+
+        .metric-card:hover::before {
+            left: 100%;
+        }
+
+        .metric-value {
+            font-size: 13px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 2px;
+        }
+
+        .metric-label {
+            font-size: 8px;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        .trend-up {
+            color: #27ae60;
+        }
+
+        .trend-down {
+            color: #e74c3c;
+        }
+
+        .forecast-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .forecast-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .accuracy-badge {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 8px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+        }
+
+        .uncertainty-legend {
+            display: flex;
+            justify-content: space-between;
+            font-size: 7px;
+            color: #7f8c8d;
+            margin-top: 3px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .legend-color {
+            width: 8px;
+            height: 3px;
+            border-radius: 2px;
+        }
+
+        .weather-indicator {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 3px 6px;
+            border-radius: 12px;
+            font-size: 9px;
+            color: #2c3e50;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .status-indicators {
+            display: flex;
+            gap: 6px;
+            position: absolute;
+            bottom: 8px;
+            left: 12px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        .status-operational { background: #27ae60; }
+        .status-warning { background: #f39c12; }
+        .status-maintenance { background: #3498db; }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 3px currentColor; }
+            to { box-shadow: 0 0 8px currentColor; }
+        }
+
+        .donut-container {
+            position: relative;
+        }
+
+        .donut-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 10px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .donut-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: #4ecdc4;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1 class="title">🚲 Advanced Bike Rental Demand Forecasting</h1>
+            <div class="live-indicator">
+                <div class="live-dot"></div>
+                LIVE ANALYTICS
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Hourly Demand with Uncertainty Bands -->
+            <div class="chart-container forecast-container">
+                <div class="forecast-header">
+                    <div class="chart-title">Hourly Demand Forecast</div>
+                    <div class="accuracy-badge">96.3% CI</div>
+                </div>
+                <canvas id="demandChart" class="chart-canvas"></canvas>
+                <div class="uncertainty-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4ecdc4;"></div>
+                        <span>Forecast</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(78, 205, 196, 0.3);"></div>
+                        <span>95% CI</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff6b6b;"></div>
+                        <span>Actual</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fleet Utilization Donut -->
+            <div class="chart-container donut-container">
+                <div class="chart-title">Fleet Utilization</div>
+                <canvas id="utilizationChart" class="chart-canvas"></canvas>
+                <div class="donut-center">
+                    <div class="donut-value">89%</div>
+                    <div>Active</div>
+                </div>
+            </div>
+
+            <!-- Station Performance Bar Chart -->
+            <div class="chart-container">
+                <div class="chart-title">Station Performance</div>
+                <canvas id="stationChart" class="chart-canvas"></canvas>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value trend-up">342</div>
+                    <div class="metric-label">Current Rentals</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value trend-up">+23%</div>
+                    <div class="metric-label">vs Yesterday</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">47</div>
+                    <div class="metric-label">Available Bikes</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value trend-up">12.5</div>
+                    <div class="metric-label">Avg Trip (min)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value trend-up">€2,840</div>
+                    <div class="metric-label">Daily Revenue</div>
+                </div>
+            </div>
+
+            <!-- Peak Hours Distribution -->
+            <div class="chart-container">
+                <div class="chart-title">Peak Hours Distribution</div>
+                <canvas id="peakHoursChart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+
+        <div class="weather-indicator">
+            ☀️ 24°C | UV: 6 | Wind: 12km/h
+        </div>
+
+        <div class="status-indicators">
+            <div class="status-dot status-operational" title="System Operational"></div>
+            <div class="status-dot status-warning" title="High Demand Alert"></div>
+            <div class="status-dot status-maintenance" title="Maintenance Scheduled"></div>
+        </div>
+    </div>
+
+    <script>
+        // Generate sophisticated data
+        function generateForecastData() {
+            const hours = [];
+            const actual = [];
+            const forecast = [];
+            const upperBound = [];
+            const lowerBound = [];
+            
+            for (let i = 0; i < 24; i++) {
+                hours.push(i + ':00');
+                const base = 50 + Math.sin(i * 0.3) * 30 + Math.sin(i * 0.1) * 20;
+                const noise = (Math.random() - 0.5) * 10;
+                
+                actual.push(base + noise);
+                forecast.push(base + (Math.random() - 0.5) * 5);
+                upperBound.push(base + 15);
+                lowerBound.push(base - 15);
+            }
+            
+            return { hours, actual, forecast, upperBound, lowerBound };
+        }
+
+        // Initialize all charts
+        const { hours, actual, forecast, upperBound, lowerBound } = generateForecastData();
+
+        // 1. Demand Chart with Uncertainty Bands
+        const demandCtx = document.getElementById('demandChart').getContext('2d');
+        new Chart(demandCtx, {
+            type: 'line',
+            data: {
+                labels: hours,
+                datasets: [{
+                    label: 'Upper Bound',
+                    data: upperBound,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(78, 205, 196, 0.2)',
+                    fill: '+1',
+                    pointRadius: 0,
+                    tension: 0.4
+                }, {
+                    label: 'Lower Bound',
+                    data: lowerBound,
+                    borderColor: 'transparent',
+                    backgroundColor: 'rgba(78, 205, 196, 0.2)',
+                    fill: false,
+                    pointRadius: 0,
+                    tension: 0.4
+                }, {
+                    label: 'Forecast',
+                    data: forecast,
+                    borderColor: '#4ecdc4',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 3,
+                    tension: 0.4
+                }, {
+                    label: 'Actual',
+                    data: actual,
+                    borderColor: '#ff6b6b',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 1,
+                    pointHoverRadius: 3,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { display: false },
+                        ticks: { 
+                            maxTicksLimit: 6,
+                            font: { size: 8 }
+                        }
+                    },
+                    y: {
+                        display: false,
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // 2. Fleet Utilization Donut Chart
+        const utilizationCtx = document.getElementById('utilizationChart').getContext('2d');
+        new Chart(utilizationCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Active', 'Maintenance', 'Available'],
+                datasets: [{
+                    data: [89, 6, 5],
+                    backgroundColor: [
+                        '#4ecdc4',
+                        '#ff6b6b',
+                        '#96ceb4'
+                    ],
+                    borderWidth: 0,
+                    cutout: '70%'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // 3. Station Performance Bar Chart
+        const stationCtx = document.getElementById('stationChart').getContext('2d');
+        new Chart(stationCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Central', 'Park', 'Mall', 'Uni', 'Beach'],
+                datasets: [{
+                    label: 'Performance',
+                    data: [95, 87, 92, 78, 85],
+                    backgroundColor: [
+                        '#4ecdc4',
+                        '#45b7d1',
+                        '#96ceb4',
+                        '#ffeaa7',
+                        '#fd79a8'
+                    ],
+                    borderRadius: 4,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 8 } }
+                    },
+                    y: {
+                        display: false,
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+
+        // 4. Peak Hours Distribution Donut
+        const peakHoursCtx = document.getElementById('peakHoursChart').getContext('2d');
+        new Chart(peakHoursCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Morning Rush', 'Lunch', 'Evening Rush', 'Night'],
+                datasets: [{
+                    data: [35, 20, 32, 13],
+                    backgroundColor: [
+                        '#ff6b6b',
+                        '#4ecdc4',
+                        '#45b7d1',
+                        '#96ceb4'
+                    ],
+                    borderWidth: 0,
+                    cutout: '60%'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { 
+                        display: true,
+                        position: 'bottom',
+                        labels: {
+                            font: { size: 7 },
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Real-time updates with sophisticated animations
+        function updateMetrics() {
+            const metrics = document.querySelectorAll('.metric-value');
+            const values = [
+                Math.floor(Math.random() * 50) + 320,
+                '+' + Math.floor(Math.random() * 30 + 15) + '%',
+                Math.floor(Math.random() * 30) + 35,
+                (Math.random() * 5 + 10).toFixed(1),
+                '€' + (Math.random() * 1000 + 2500).toFixed(0)
+            ];
+            
+            metrics.forEach((metric, index) => {
+                if (index < values.length) {
+                    metric.textContent = values[index];
+                    metric.style.transform = 'scale(1.1)';
+                    setTimeout(() => {
+                        metric.style.transform = 'scale(1)';
+                    }, 200);
+                }
+            });
+        }
+
+        // Update every 4 seconds
+        setInterval(updateMetrics, 4000);
+
+        // Add hover effects for chart containers
+        document.querySelectorAll('.chart-container').forEach(container => {
+            container.addEventListener('mouseenter', () => {
+                container.style.transform = 'translateY(-2px)';
+                container.style.boxShadow = '0 12px 35px rgba(0,0,0,0.15)';
+            });
+            
+            container.addEventListener('mouseleave', () => {
+                container.style.transform = 'translateY(0)';
+                container.style.boxShadow = '0 8px 25px rgba(0,0,0,0.1)';
+            });
+        });
+    </script>
+</body>
+</html>
