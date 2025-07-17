@@ -21,11 +21,89 @@
       }
     });
   });
+    // Modal scroll lock with overscroll prevention
+    let scrollPosition = 0;
+
+    function lockScroll() {
+        // Store current scroll position
+        scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+    
+        // Apply CSS styles to prevent background scrolling
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${scrollPosition}px`;
+        document.body.style.width = '100%';
+        document.body.style.overflow = 'hidden';
+    
+        // Prevent overscroll on html element
+        document.documentElement.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehavior = 'none';
+        document.body.style.overscrollBehavior = 'none';
+    }
+
+    function unlockScroll() {
+        // Remove CSS styles
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+        document.documentElement.style.overscrollBehavior = '';
+        document.body.style.overscrollBehavior = '';
+    
+        // Restore scroll position
+        window.scrollTo(0, scrollPosition);
+    }
+
+    // Apply this to your modal container
+    function setupModalScrolling(modalElement) {
+    // Ensure modal has proper CSS for contained scrolling
+        modalElement.style.overscrollBehavior = 'contain';
+        modalElement.style.overflow = 'auto';
+        modalElement.style.maxHeight = '100vh'; // or whatever height you need
+    
+        // Handle scroll events on the modal to prevent propagation
+        modalElement.addEventListener('wheel', function(e) {
+            const scrollTop = this.scrollTop;
+            const scrollHeight = this.scrollHeight;
+            const height = this.offsetHeight;
+            const delta = e.deltaY;
+        
+            // Prevent scrolling up when at top
+            if (delta < 0 && scrollTop === 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        
+            // Prevent scrolling down when at bottom
+            if (delta > 0 && scrollTop + height >= scrollHeight) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        }, { passive: false });
+    
+        // Handle touch events for mobile
+        modalElement.addEventListener('touchmove', function(e) {
+            const scrollTop = this.scrollTop;
+            const scrollHeight = this.scrollHeight;
+            const height = this.offsetHeight;
+            const touch = e.touches[0];
+            const startY = touch.clientY;
+        
+            // Simple touch scroll prevention at boundaries
+            if ((scrollTop === 0 && startY > this.lastTouchY) || 
+                (scrollTop + height >= scrollHeight && startY < this.lastTouchY)) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        
+            this.lastTouchY = startY;
+        }, { passive: false });
+    }
 
 
-
-
-
+  
         // Project modal functionality
         function openModal(projectId) {
             const modal = document.getElementById('projectModal');
